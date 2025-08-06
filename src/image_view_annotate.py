@@ -1,27 +1,42 @@
 #!/usr/bin/python3
 # -*- coding: UTF-8 -*-
-
-# import the necessary packages
 import os
+import re
 import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
-import re
+
+
+class StatusBar(tk.Frame):
+   def __init__(self, __root):
+      tk.Frame.__init__(self, __root)
+      self.__label = tk.Label(self, bd = 1, relief = tk.SUNKEN, anchor = "w")
+      self.__label.pack(fill = tk.X)
+   def set(self, format0, *args):
+      self.__label.config(text = format0 % args)
+      self.__label.update_idletasks()
+   def clear(self):
+      self.__label.config(text="")
+      self.__label.update_idletasks()
+
 
 class App(tk.Frame):
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, root):
+		super().__init__(root)
+		self.__root = root
 
-		# self.__window = tk.Tk()
-		# 设置窗口标题
-		# # self.__window.title('image View and Annotate')
-		# self.__window.wm_title('image View and Annotate')
+		# resize row 1 and column 0 with window
+		self.__root.rowconfigure(1, weight = 1)
+		self.__root.columnconfigure(0, weight = 1)
+		# set minimum height for row 0 and 2
+		self.__root.rowconfigure(0, minsize = 20)
+		self.__root.rowconfigure(2, minsize = 20)
 
 		# a reference to the image panels
-		self.__imgPanel = None
+		self.__imgPanel = None;
 		
 		self.__imgLst = []
 
@@ -37,9 +52,9 @@ class App(tk.Frame):
 
 	def __initUI(self):
 
-		self.master.title("imgView&Annotation")
+		self.__root.title("imgView&Annotation")
 
-		toolbar = tk.Frame(self.master, bd = 1, relief = tk.RAISED)
+		toolbar = tk.Frame(self.__root, bd = 1, relief = tk.RAISED)
 
 		img = Image.open("resources\\icons8-add-file-16.png")
 		eimg = ImageTk.PhotoImage(img)
@@ -89,16 +104,13 @@ class App(tk.Frame):
 		exitButton.image = eimg
 		exitButton.pack(side = tk.LEFT, padx = 2, pady = 2)
 
-		toolbar.pack(side = tk.TOP, fill = tk.X)
+		toolbar.grid(row=0, sticky="ew")
 
 		self.__imgPanel = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
-		self.__imgPanel.pack()
+		self.__imgPanel.grid(row = 1, sticky = "ewsn")
 
-		self.__statusbar = tk.Label(text = "on the way…", height=20, bd = 1, relief = tk.SUNKEN, anchor = tk.W)
-		self.__statusbar.pack(side = tk.BOTTOM, fill = tk.X)
-
-		# self.master.config(menu = menubar)
-		self.pack()
+		self.__statusbar = StatusBar(self.__root)
+		self.__statusbar.grid(row=2, sticky="ew")
 
 	# FIXME: the order is not responding with the windows file order
 	def __traverseImgs(self, img):
@@ -218,10 +230,10 @@ class App(tk.Frame):
 
 		image = self.__readImg(imgPath)
 		if image is not None:
+			self.__traverseImgs(imgPath)
+
 			image = self.__scaleImg(image)
 			self.__displayImg(image)
-
-			self.__traverseImgs(imgPath)
 
 	def __scaleImg(self, img, factor = 1):
 		# Get number of pixel horizontally and vertically.
@@ -231,8 +243,8 @@ class App(tk.Frame):
 		print("panel x:", self.__imgPanel.winfo_x(), ", panel y:", self.__imgPanel.winfo_y())
 		print("statusbar x:", self.__statusbar.winfo_x(), ", statusbar y:", self.__statusbar.winfo_y())
 		widthOfFram = self.__window_width
-		heightOfFram = self.__window_height - self.__imgPanel.winfo_y() - 20
-		# heightOfFram =  self.__statusbar.winfo_y() - self.__imgPanel.winfo_y()
+		# heightOfFram = self.__window_height - self.__imgPanel.winfo_y() - 20
+		heightOfFram =  self.__statusbar.winfo_y() - self.__imgPanel.winfo_y()
 		print("panel:", widthOfFram, heightOfFram)
 		ratioOfWidth = widthOfImg / widthOfFram
 		ratioOfHeight = heightOfImg / heightOfFram
@@ -245,12 +257,14 @@ class App(tk.Frame):
 		newHeight = newWidth * ratioOfImg * factor
 		print("new:", newWidth, newHeight)
 
+		self.__statusbar.set("%d*%d\t\t%.2f%%%%\t\t%d/%d" %(widthOfImg, heightOfImg, scale * 100, self.__idx + 1, len(self.__imgLst)))
+
 		return cv2.resize(img, (int(newWidth), int(newHeight)), interpolation = cv2.INTER_CUBIC)	
 
 	def __readImg(self, imgPath):
 		if os.path.exists(imgPath):
 			imgName = os.path.split(imgPath)[1]
-			self.master.title(imgName)
+			self.__root.title(imgName)
 
 			# load the image from disk
 			# image = cv2.imread(imgPath)
@@ -284,11 +298,11 @@ class App(tk.Frame):
 	# listen events of window resizing.
 	def onWindowResize(self, event = None):
 		if event is not None:
-			if self.__window_width != self.master.winfo_width() or self.__window_height != self.master.winfo_height():
-				if self.__window_width != self.master.winfo_width():
-					self.__window_width = self.master.winfo_width()
-				if self.__window_height != self.master.winfo_height():
-					self.__window_height = self.master.winfo_height()
+			if self.__window_width != self.__root.winfo_width() or self.__window_height != self.__root.winfo_height():
+				if self.__window_width != self.__root.winfo_width():
+					self.__window_width = self.__root.winfo_width()
+				if self.__window_height != self.__root.winfo_height():
+					self.__window_height = self.__root.winfo_height()
 
 
 def main():
@@ -300,7 +314,7 @@ def main():
 	# linux maximum
 	# root.attributes('-zoomed', True)
 
-	app = App()
+	app = App(root)
 	root.bind_all('<KeyPress>', app.eventhandler)
 	root.bind('<Configure>', app.onWindowResize)
 
