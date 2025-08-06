@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import filedialog, simpledialog, messagebox
@@ -50,8 +51,10 @@ class App(tkWin):
 		# toolbar = ToolBar(self._frmApp, self)
 		# toolbar.grid(row=0, sticky="ew")
 
-		# self._panelImageViewandAnnotate = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
-		# self._panelImageViewandAnnotate.grid(row = 1, sticky = "ewsn")
+		# self.__imgPanel = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
+		# self.__imgPanel.grid(row = 1, sticky = "ewsn")
+
+		self.__imgPanel = None
 
 		self.__statusbar = StatusBar(self._frmApp)
 		self.__statusbar.grid(row=2, sticky="ew")
@@ -59,6 +62,13 @@ class App(tkWin):
 		self.__img = None
 
 	def go(self):
+		self.__imgPanel = self.get_control("ImageViewandAnnotate")
+
+		# windows maximum
+		# self._frmApp.state('zoomed')
+		# linux maximum
+		# self._frmApp.attributes('-zoomed', True)
+
 		self._frmApp.bind_all('<KeyPress>', self.eventhandler)
 		self._frmApp.bind('<Configure>', self.onWindowResize)
 		self._frmApp.mainloop()
@@ -90,7 +100,7 @@ class App(tkWin):
 
 	# FIXME: 1) size of askstring is not proper
 	# 2) left key doesn't work
-	def _btnRenameImageClick(self, initVal = None):
+	def __rename_image(self, initVal = None):
 		curImg = self.__imgLst[self.__idx]
 		path, fName = os.path.split(curImg)
 		name, ext = os.path.splitext(fName)
@@ -107,26 +117,20 @@ class App(tkWin):
 					os.rename(curImg, newName)
 					print(curImg + " is be renamed to " + newName)
 					self.__imgLst[self.__idx] = newName
-					self.__readAndshowImg(newName)
+					self.__read_show_image(newName)
 				else:
 					messagebox.showerror("Error", "File name illegal")
 					self.__rename(newName)
 
-	def _btnDeleteImageClick(self):
+	def __delete_image(self):
 		curImg = self.__imgLst[self.__idx]
 		os.remove(curImg)
 		del self.__imgLst[self.__idx]
 
-		self.__nextImg()
-
-	def _btnRotateClockwiseClick(self):
-		self.__rotateImg(-90)
-
-	def _btnRotateAnticlockwiseClick(self):
-		self.__rotateImg(90)
+		self.__next_image()
 
 	# TODO: save
-	def __rotateImg(self, degree):
+	def __rotate_image(self, degree):
 		if self.__img is not None:
 			# Shape of image in terms of pixels.
 			(h, w) = self.__img.shape[:2]
@@ -150,58 +154,45 @@ class App(tkWin):
 
 			self.__img = rotated_padded[paddingW: paddingW + w, paddingH: paddingH + h, :]
 
-			img = self.__scaleImg(self.__img)
-			self._panelImageViewandAnnotate.display_image(img)
+			img = self.__scale_image(self.__img)
+			self.__imgPanel.display_image(img)
 
 	# FIXME: circulate
-	def _btnNextImageClick(self):
+	def __next_image(self):
 		if self.__idx < len(self.__imgLst) - 1:
 			self.__idx += 1
 			imgPath = self.__imgLst[self.__idx]
-			self.__readAndshowImg(imgPath)
+			self.__read_show_image(imgPath)
 
 	# FIXME: circulate
-	def _btnPreviousImageClick(self):
+	def __prev_image(self):
 		if self.__idx >= 1:
 			self.__idx -= 1
 			imgPath = self.__imgLst[self.__idx]
-			self.__readAndshowImg(imgPath)
-
-	def eventhandler(self, event):
-		if event.keysym == "Left":
-			self._btnPreviousImageClick()
-		elif event.keysym == 'Right':
-			self._btnNextImageClick()
-		elif event.keysym == 'F2':
-			self._btnRenameImageClick()
-		elif event.keysym == 'F3':
-			self._btnOpenImageClick()
-		elif event.keysym == 'Delete':
-			self._btnDeleteImageClick()
+			self.__read_show_image(imgPath)
 
 	# FIXME: center the dialog
-	def _btnOpenImageClick(self):
-
+	def __open_image(self):
 		# open a file chooser dialog and allow the user to select an input image
 		imgPath = filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
 
-		image = self.__readImg(imgPath)
+		image = self.__read_image(imgPath)
 		if image is not None:
 			self.__traverseImgs(imgPath)
 
-			image = self.__scaleImg(image)
-			self._panelImageViewandAnnotate.display_image(image)
+			image = self.__scale_image(image)
+			self.__imgPanel.display_image(image)
 
-	def __scaleImg(self, img, factor = 1):
+	def __scale_image(self, img, factor = 1):
 		# Get number of pixel horizontally and vertically.
 		(heightOfImg, widthOfImg) = img.shape[:2]
 		print("img:", widthOfImg, heightOfImg)
 		print("win w:", self.__window_width, ", win h:", self.__window_height)
-		print("panel x:", self._panelImageViewandAnnotate.winfo_x(), ", panel y:", self._panelImageViewandAnnotate.winfo_y())
+		print("panel x:", self.__imgPanel.winfo_x(), ", panel y:", self.__imgPanel.winfo_y())
 		print("statusbar x:", self.__statusbar.winfo_x(), ", statusbar y:", self.__statusbar.winfo_y())
 		widthOfFram = self.__window_width
-		# heightOfFram = self.__window_height - self._panelImageViewandAnnotate.winfo_y() - 20
-		heightOfFram =  self.__statusbar.winfo_y() - self._panelImageViewandAnnotate.winfo_y()
+		# heightOfFram = self.__window_height - self.__imgPanel.winfo_y() - 20
+		heightOfFram =  self.__statusbar.winfo_y() - self.__imgPanel.winfo_y()
 		print("panel:", widthOfFram, heightOfFram)
 		ratioOfWidth = widthOfImg / widthOfFram
 		ratioOfHeight = heightOfImg / heightOfFram
@@ -218,7 +209,7 @@ class App(tkWin):
 
 		return cv2.resize(img, (int(newWidth), int(newHeight)), interpolation = cv2.INTER_CUBIC)	
 
-	def __readImg(self, imgPath):
+	def __read_image(self, imgPath):
 		if os.path.exists(imgPath):
 			imgName = os.path.split(imgPath)[1]
 			self._frmApp.title(imgName)
@@ -232,12 +223,12 @@ class App(tkWin):
 		else:
 			return None
 
-	def __readAndshowImg(self, imgPath):
-		image = self.__readImg(imgPath)
+	def __read_show_image(self, imgPath):
+		image = self.__read_image(imgPath)
 		if image is not None:
-			image = self.__scaleImg(image)
+			image = self.__scale_image(image)
 			# self.__displayImg(image)
-			self._panelImageViewandAnnotate.display_image(image)
+			self.__imgPanel.display_image(image)
 
 	# listen events of window resizing.
 	def onWindowResize(self, event = None):
@@ -248,11 +239,39 @@ class App(tkWin):
 				if self.__window_height != self._frmApp.winfo_height():
 					self.__window_height = self._frmApp.winfo_height()
 
+	def eventhandler(self, event):
+		if event.keysym == "Left":
+			self.__prev_image()
+		elif event.keysym == 'Right':
+			self.__next_image()
+		elif event.keysym == 'F2':
+			self.__rename_image()
+		elif event.keysym == 'F3':
+			self.__open_image()
+		elif event.keysym == 'Delete':
+			self.__delete_image()
+
+	def process_message(self, idCtrl, msg, extMsg=""):
+		if idCtrl == "OpenImage":
+			self.__open_image()
+		elif idCtrl == "RenameImage":
+			self.__rename_image()
+		elif idCtrl == "NextImage":
+			self.__next_image()
+		elif idCtrl == "PreviousImage":
+			self.__prev_image()
+		elif idCtrl == "RotateClockwise":
+			self.__rotate_image(-90)
+		elif idCtrl == "RotateAnticlockwise":
+			self.__rotate_image(90)
+		elif idCtrl == "DeleteImage":
+			self.__delete_image()
+		elif idCtrl == "ExitApplication":
+			super().exit_window()
+		else:
+			super().process_message(idCtrl, msg, extMsg)
 
 def main():
-	# initialize the window toolkit along with the two image panels
-	# root = tk.Tk()
-	# root = tix.Tk()
 	myApp = App()
 
 	curPath = os.path.dirname(os.path.abspath(__file__))
@@ -263,13 +282,7 @@ def main():
 	winXml = os.path.join(proj_path, 'resources', 'window.xml')
 	myApp.create_window(winXml)
 
-	# windows maximum
-	# root.state('zoomed')
-	# linux maximum
-	# root.attributes('-zoomed', True)
-
 	# kick off the GUI
-	# root.mainloop()
 	myApp.go()
 
 
