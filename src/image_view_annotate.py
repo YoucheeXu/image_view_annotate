@@ -1,116 +1,67 @@
 #!/usr/bin/python3
 # -*- coding: UTF-8 -*-
+import sys
 import os
 import re
 import tkinter as tk
+import tkinter.ttk as ttk
 from tkinter import filedialog, simpledialog, messagebox
-from PIL import Image, ImageTk
-import cv2
+
 import numpy as np
+import cv2
+
+from pyutilities.logit import pv
+from pyutilities.tkwin import tkWin
 
 
 class StatusBar(tk.Frame):
-   def __init__(self, __root):
-      tk.Frame.__init__(self, __root)
-      self.__label = tk.Label(self, bd = 1, relief = tk.SUNKEN, anchor = "w")
-      self.__label.pack(fill = tk.X)
-   def set(self, format0, *args):
-      self.__label.config(text = format0 % args)
-      self.__label.update_idletasks()
-   def clear(self):
-      self.__label.config(text="")
-      self.__label.update_idletasks()
+	def __init__(self, _frmApp):
+		tk.Frame.__init__(self, _frmApp)
+		self.__label = tk.Label(self, bd = 1, relief = tk.SUNKEN, anchor = "w")
+		self.__label.pack(fill = tk.X)
+	def set(self, format0, *args):
+		self.__label.config(text = format0 % args)
+		self.__label.update_idletasks()
+	def clear(self):
+		self.__label.config(text="")
+		self.__label.update_idletasks()
 
 
-class App(tk.Frame):
+class App(tkWin):
 
-	def __init__(self, root):
-		super().__init__(root)
-		self.__root = root
+	def __init__(self):
+		super().__init__()
+		# self._frmApp = root
 
 		# resize row 1 and column 0 with window
-		self.__root.rowconfigure(1, weight = 1)
-		self.__root.columnconfigure(0, weight = 1)
+		self._frmApp.rowconfigure(1, weight = 1)
+		self._frmApp.columnconfigure(0, weight = 1)
 		# set minimum height for row 0 and 2
-		self.__root.rowconfigure(0, minsize = 20)
-		self.__root.rowconfigure(2, minsize = 20)
+		self._frmApp.rowconfigure(0, minsize = 20)
+		self._frmApp.rowconfigure(2, minsize = 20)
 
-		# a reference to the image panels
-		self.__imgPanel = None;
-		
 		self.__imgLst = []
 
 		self.__window_width = 0
 		self.__window_height = 0
 
-		self.__initUI()
+		# self._frmApp.title("imgView&Annotation")
+
+		# toolbar = ToolBar(self._frmApp, self)
+		# toolbar.grid(row=0, sticky="ew")
+
+		# self._panelImageViewandAnnotate = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
+		# self._panelImageViewandAnnotate.grid(row = 1, sticky = "ewsn")
+
+		self.__statusbar = StatusBar(self._frmApp)
+		self.__statusbar.grid(row=2, sticky="ew")
 
 		self.__img = None
 
-	def __exit(self):
-		self.quit()
-
-	def __initUI(self):
-
-		self.__root.title("imgView&Annotation")
-
-		toolbar = tk.Frame(self.__root, bd = 1, relief = tk.RAISED)
-
-		img = Image.open("resources\\icons8-add-file-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		openImgButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__selImage)
-		openImgButton.image = eimg
-		openImgButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-rename-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		renameButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__rename)
-		renameButton.image = eimg
-		renameButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-next-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		nextImgButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__nextImg)
-		nextImgButton.image = eimg
-		nextImgButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-previous-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		privousImgButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__previousImg)
-		privousImgButton.image = eimg
-		privousImgButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-rotate-right-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		rotateRightButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = lambda: self.__rotateImg(-90))
-		rotateRightButton.image = eimg
-		rotateRightButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-rotate-left-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		rotateLeftButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = lambda: self.__rotateImg(90))
-		rotateLeftButton.image = eimg
-		rotateLeftButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-delete-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		delButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__delImg)
-		delButton.image = eimg
-		delButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		img = Image.open("resources\\icons8-close-window-16.png")
-		eimg = ImageTk.PhotoImage(img)
-		exitButton = tk.Button(toolbar, image = eimg, relief = tk.FLAT, command = self.__exit)
-		exitButton.image = eimg
-		exitButton.pack(side = tk.LEFT, padx = 2, pady = 2)
-
-		toolbar.grid(row=0, sticky="ew")
-
-		self.__imgPanel = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
-		self.__imgPanel.grid(row = 1, sticky = "ewsn")
-
-		self.__statusbar = StatusBar(self.__root)
-		self.__statusbar.grid(row=2, sticky="ew")
+	def go(self):
+		self._frmApp.bind_all('<KeyPress>', self.eventhandler)
+		self._frmApp.bind('<Configure>', self.onWindowResize)
+		self._frmApp.mainloop()
 
 	# FIXME: the order is not responding with the windows file order
 	def __traverseImgs(self, img):
@@ -139,7 +90,7 @@ class App(tk.Frame):
 
 	# FIXME: 1) size of askstring is not proper
 	# 2) left key doesn't work
-	def __rename(self, initVal = None):
+	def _btnRenameImageClick(self, initVal = None):
 		curImg = self.__imgLst[self.__idx]
 		path, fName = os.path.split(curImg)
 		name, ext = os.path.splitext(fName)
@@ -161,12 +112,18 @@ class App(tk.Frame):
 					messagebox.showerror("Error", "File name illegal")
 					self.__rename(newName)
 
-	def __delImg(self):
+	def _btnDeleteImageClick(self):
 		curImg = self.__imgLst[self.__idx]
 		os.remove(curImg)
 		del self.__imgLst[self.__idx]
 
 		self.__nextImg()
+
+	def _btnRotateClockwiseClick(self):
+		self.__rotateImg(-90)
+
+	def _btnRotateAnticlockwiseClick(self):
+		self.__rotateImg(90)
 
 	# TODO: save
 	def __rotateImg(self, degree):
@@ -194,17 +151,17 @@ class App(tk.Frame):
 			self.__img = rotated_padded[paddingW: paddingW + w, paddingH: paddingH + h, :]
 
 			img = self.__scaleImg(self.__img)
-			self.__displayImg(img)
+			self._panelImageViewandAnnotate.display_image(img)
 
 	# FIXME: circulate
-	def __nextImg(self):
+	def _btnNextImageClick(self):
 		if self.__idx < len(self.__imgLst) - 1:
 			self.__idx += 1
 			imgPath = self.__imgLst[self.__idx]
 			self.__readAndshowImg(imgPath)
 
 	# FIXME: circulate
-	def __previousImg(self):
+	def _btnPreviousImageClick(self):
 		if self.__idx >= 1:
 			self.__idx -= 1
 			imgPath = self.__imgLst[self.__idx]
@@ -212,18 +169,18 @@ class App(tk.Frame):
 
 	def eventhandler(self, event):
 		if event.keysym == "Left":
-			self.__previousImg()
+			self._btnPreviousImageClick()
 		elif event.keysym == 'Right':
-			self.__nextImg()
+			self._btnNextImageClick()
 		elif event.keysym == 'F2':
-			self.__rename()
+			self._btnRenameImageClick()
 		elif event.keysym == 'F3':
-			self.__selImage()
+			self._btnOpenImageClick()
 		elif event.keysym == 'Delete':
-			self.__delImg()
+			self._btnDeleteImageClick()
 
 	# FIXME: center the dialog
-	def __selImage(self):
+	def _btnOpenImageClick(self):
 
 		# open a file chooser dialog and allow the user to select an input image
 		imgPath = filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
@@ -233,18 +190,18 @@ class App(tk.Frame):
 			self.__traverseImgs(imgPath)
 
 			image = self.__scaleImg(image)
-			self.__displayImg(image)
+			self._panelImageViewandAnnotate.display_image(image)
 
 	def __scaleImg(self, img, factor = 1):
 		# Get number of pixel horizontally and vertically.
 		(heightOfImg, widthOfImg) = img.shape[:2]
 		print("img:", widthOfImg, heightOfImg)
 		print("win w:", self.__window_width, ", win h:", self.__window_height)
-		print("panel x:", self.__imgPanel.winfo_x(), ", panel y:", self.__imgPanel.winfo_y())
+		print("panel x:", self._panelImageViewandAnnotate.winfo_x(), ", panel y:", self._panelImageViewandAnnotate.winfo_y())
 		print("statusbar x:", self.__statusbar.winfo_x(), ", statusbar y:", self.__statusbar.winfo_y())
 		widthOfFram = self.__window_width
-		# heightOfFram = self.__window_height - self.__imgPanel.winfo_y() - 20
-		heightOfFram =  self.__statusbar.winfo_y() - self.__imgPanel.winfo_y()
+		# heightOfFram = self.__window_height - self._panelImageViewandAnnotate.winfo_y() - 20
+		heightOfFram =  self.__statusbar.winfo_y() - self._panelImageViewandAnnotate.winfo_y()
 		print("panel:", widthOfFram, heightOfFram)
 		ratioOfWidth = widthOfImg / widthOfFram
 		ratioOfHeight = heightOfImg / heightOfFram
@@ -264,7 +221,7 @@ class App(tk.Frame):
 	def __readImg(self, imgPath):
 		if os.path.exists(imgPath):
 			imgName = os.path.split(imgPath)[1]
-			self.__root.title(imgName)
+			self._frmApp.title(imgName)
 
 			# load the image from disk
 			# image = cv2.imread(imgPath)
@@ -275,51 +232,45 @@ class App(tk.Frame):
 		else:
 			return None
 
-	def __displayImg(self, image):
-
-		# OpenCV represents images in BGR order; however PIL represents
-		# images in RGB order, so we need to swap the channels
-		image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-		# convert the images to PIL format...
-		image = Image.fromarray(image)
-		# ...and then to ImageTk format
-		image = ImageTk.PhotoImage(image)
-
-		self.__imgPanel.configure(image = image)
-		self.__imgPanel.image = image
-
 	def __readAndshowImg(self, imgPath):
 		image = self.__readImg(imgPath)
 		if image is not None:
 			image = self.__scaleImg(image)
-			self.__displayImg(image)
+			# self.__displayImg(image)
+			self._panelImageViewandAnnotate.display_image(image)
 
 	# listen events of window resizing.
 	def onWindowResize(self, event = None):
 		if event is not None:
-			if self.__window_width != self.__root.winfo_width() or self.__window_height != self.__root.winfo_height():
-				if self.__window_width != self.__root.winfo_width():
-					self.__window_width = self.__root.winfo_width()
-				if self.__window_height != self.__root.winfo_height():
-					self.__window_height = self.__root.winfo_height()
+			if self.__window_width != self._frmApp.winfo_width() or self.__window_height != self._frmApp.winfo_height():
+				if self.__window_width != self._frmApp.winfo_width():
+					self.__window_width = self._frmApp.winfo_width()
+				if self.__window_height != self._frmApp.winfo_height():
+					self.__window_height = self._frmApp.winfo_height()
 
 
 def main():
 	# initialize the window toolkit along with the two image panels
-	root = tk.Tk()
+	# root = tk.Tk()
+	# root = tix.Tk()
+	myApp = App()
+
+	curPath = os.path.dirname(os.path.abspath(__file__))
+	if getattr(sys, 'frozen', False):
+		# print("script is packaged!")
+		curPath = os.path.dirname(os.path.abspath(sys.executable))
+	proj_path = os.path.join(curPath, "..")
+	winXml = os.path.join(proj_path, 'resources', 'window.xml')
+	myApp.create_window(winXml)
 
 	# windows maximum
-	root.state('zoomed')
+	# root.state('zoomed')
 	# linux maximum
 	# root.attributes('-zoomed', True)
 
-	app = App(root)
-	root.bind_all('<KeyPress>', app.eventhandler)
-	root.bind('<Configure>', app.onWindowResize)
-
 	# kick off the GUI
-	root.mainloop()
+	# root.mainloop()
+	myApp.go()
 
 
 if __name__ == "__main__":

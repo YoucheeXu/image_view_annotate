@@ -1,0 +1,12 @@
+<Window Title="Image View and Annotate" Width="800" Height="600">
+	<Toolbar text="toolbar" layout="grid" grid="{'row':0, 'sticky':'ew'}">
+		<ImgButton text="OpenImage" 			tooltip="Open Image" 			img="icons8-add-file-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="RenameImage" 			tooltip="Rename Image" 			img="icons8-rename-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="NextImage" 			tooltip="Next Image" 			img="icons8-next-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="PreviousImage" 		tooltip="Previous Image" 		img="icons8-previous-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="RotateClockwise"		tooltip="Rotate Clockwise" 		img="icons8-rotate-right-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="RotateAnticlockwise"	tooltip="Rotate Anticlockwise"	img="icons8-rotate-left-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImgButton text="DeleteImage" 			tooltip="Delete Image" 			img="icons8-delete-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+	</Toolbar>
+	<ImgPanel  text="ImageViewandAnnotate" layout="grid" grid="{'row':1, 'sticky':'ewsn'}" options="{'bg':'white'}"/>
+</Window>
