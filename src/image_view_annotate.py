@@ -9,11 +9,12 @@ from tkinter import filedialog, simpledialog
 from typing import cast, override, Any
 from idlelib.statusbar import MultiStatusBar
 
-# import numpy as np
+import numpy as np
 import cv2
 # import PIL
+from PIL import Image, ImageSequence
 
-from pyutilities.logit import pv
+from pyutilities.logit import pv, po
 import pyutilities.cv2_utilities as cv2u
 # from pyutilities.win_app import ImagePanelCtrl, WinApp
 from pyutilities.tkwin import ImagePanelCtrl, tkWin
@@ -34,7 +35,7 @@ class App(tkWin):
 
         self._image_list: list[str] = []
 
-        self._image: cv2.typing.MatLike | None = None
+        self._image: cv2.typing.MatLike | list[cv2.typing.MatLike] | None = None
         self._idx: int = -1
 
         self._image_panel: ImagePanelCtrl = cast(ImagePanelCtrl, self.get_control("pnlImage"))
@@ -45,9 +46,15 @@ class App(tkWin):
         # linux maximum
         # self._win.attributes('-zoomed', True)
 
+        self._support_exts: list[str] = [".jpg", ".jpeg", ".bmp", ".png",
+            ".webp", ".tiff", ".tif", ".ppm",
+            ".gif"]
+
+        self._timer: str = ""
+
     # FIXME: the order is not responding with the windows file order
     def _traverse_imgs(self, img: str):
-        print(f"file: {img}")
+        po(f"file: {img}")
         if len(self._image_list) > 0:
             self._image_list.clear()
         path, img_name = os.path.split(img)
@@ -59,14 +66,14 @@ class App(tkWin):
             if os.path.isfile(file_path):
                 ext = os.path.splitext(file_path)[-1]
                 ext = ext.lower()
-                if ext in [".jpg", ".png"]:
+                if ext in self._support_exts:
                     self._image_list.append(file_path)
                     if img_name == file:
                         self._idx = i
                     i += 1
-        print(f"there is {len(self._image_list)} images.")
-        print(self._image_list)
-        print(f"the index is {self._idx}.")
+        po(f"there is {len(self._image_list)} images.")
+        po(self._image_list)
+        po(f"the index is {self._idx}.")
 
     # FIXME: 1) size of askstring is not proper
     # 2) left key doesn't work
@@ -89,19 +96,16 @@ class App(tkWin):
                 if len(new_name2) == len(new_name):
                     new_name = os.path.join(path, new_name + ext)
                     os.rename(image_name, new_name)
-                    print(image_name + " is be renamed to " + new_name)
+                    po(image_name + " is be renamed to " + new_name)
                     self._image_list[self._idx] = new_name
                     return new_name
                 else:
-                    # _ = messagebox.showerror("Error", "File name illegal")
                     _ = self.show_err("Error", f"File name '{new_name}' illegal")
         return ""
 
     def _delete_image(self):
-        try:
-            cur_image = self._image_list[self._idx]
-        except IndexError:
-            return ""
+        cur_image = self._image_list[self._idx]
+
         image_name = os.path.split(cur_image)[1]
         res = tkMessageBox.askquestion(
             image_name, "Do you really want to delete?"
@@ -110,7 +114,7 @@ class App(tkWin):
             os.remove(cur_image)
             del self._image_list[self._idx]
             return self._next_image()
-        return ""
+        return cur_image
 
     def _next_image(self):
         if self._idx < len(self._image_list) - 1:
@@ -128,21 +132,21 @@ class App(tkWin):
 
     def _open_image(self):
         # open a file chooser dialog and allow the user to select an input image
-        return filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
+        return filedialog.askopenfilename(filetypes=[("Image files", self._support_exts)])
 
-    def _scale_image(self, image: cv2.typing.MatLike, factor: float = 1):
+    def _calc_sacle(self, image: cv2.typing.MatLike, factor: float = 1):
         assert self._image_panel and self._statusbar
         # Get number of pixel horizontally and vertically.
         image_height, image_width = cast(tuple[int, int], image.shape[:2])
-        print("img:", image_width, image_height)
-        print("win w:", self._ww, ", win h:", self._hh)
-        print(
+        po("img:", image_width, image_height)
+        po("win w:", self._ww, ", win h:", self._hh)
+        po(
             "panel x:",
             self._image_panel.control.winfo_x(),
             ", panel y:",
             self._image_panel.control.winfo_y(),
         )
-        print(
+        po(
             "statusbar x:",
             self._statusbar.winfo_x(),
             ", statusbar y:",
@@ -153,17 +157,17 @@ class App(tkWin):
         # fram_height = self._window_height - self._imgPanel.winfo_y() - 20
         fram_height = self._statusbar.winfo_y() - \
             self._image_panel.control.winfo_y()
-        print("panel:", fram_width, fram_height)
+        po("panel:", fram_width, fram_height)
         ratio_width = image_width / fram_width
         ratio_height = image_height / fram_height
-        print("ratio:", ratio_width, ratio_height)
+        po("ratio:", ratio_width, ratio_height)
         ratio_image = image_height / image_width
-        print("ratio of Image:", ratio_image)
+        po("ratio of Image:", ratio_image)
         scale = 1 / max(ratio_width, ratio_height)
-        print("scale:", scale)
+        po("scale:", scale)
         new_width = image_width * scale * factor
         new_height = new_width * ratio_image * factor
-        print("new:", new_width, new_height)
+        po("new:", new_width, new_height)
 
         # display_width = self._img_panel.winfo_width()
         # pv(display_width)
@@ -172,15 +176,25 @@ class App(tkWin):
         self._statusbar.set_label("info", f"{image_width}*{image_height}\t\t{scale*100: .2f}%")
         self._statusbar.set_label("index", f"{self._idx+1} of {len(self._image_list)}", "right")
 
-        return cv2u.scale_image(image, int(new_width), int(new_height), cv2.INTER_CUBIC)
+        return int(new_width), int(new_height)
 
     def _read_image(self, image_path: str):
         if os.path.exists(image_path):
             image_name = os.path.split(image_path)[1]
             self._win.title(image_name)
 
-            # load the image from disk
-            image = cv2u.read_image(image_path)
+            _, fename = os.path.splitext(image_name)
+
+            match fename.lower():
+                case ".tiff" | ".tif":
+                    image = cv2u.read_image(image_path, cv2.IMREAD_COLOR)
+                case ".gif":
+                    images = Image.open(image_path)
+                    image = [cv2.cvtColor(np.asarray(frame), cv2.COLOR_RGB2BGR) for frame in \
+                        ImageSequence.Iterator(images)]
+                case _:
+                    # load the image from disk
+                    image = cv2u.read_image(image_path)
 
             return image
         return None
@@ -223,13 +237,21 @@ class App(tkWin):
                 image_path = self._prev_image()
                 self._image = self._read_image(image_path)
             case "btnRotClkwis":
-                if self._image:
-                    self._image = cv2u.rotate_image(self._image, -90)
+                if self._image is not None:
+                    if isinstance(self._image, list):
+                        for i in range(len(self._image)):
+                            self._image[i] = cv2u.rotate_image(self._image[i], -90)
+                    else:
+                        self._image = cv2u.rotate_image(self._image, -90)
                 else:
                     return
             case "btnRotAticlkwis":
-                if self._image:
-                    self._image = cv2u.rotate_image(self._image, 90)
+                if self._image is not None:
+                    if isinstance(self._image, list):
+                        for i in range(len(self._image)):
+                            self._image[i] = cv2u.rotate_image(self._image[i], 90)
+                    else:
+                        self._image = cv2u.rotate_image(self._image, -90)
                 else:
                     return
             case "bntDelImg":
@@ -243,8 +265,26 @@ class App(tkWin):
                 return super().process_message(idmsg, **kwargs)
 
         if self._image is not None:
-            image = self._scale_image(self._image)
-            self._image_panel.display_image(image) 
+            if self._timer:
+                self.win.after_cancel(self._timer)
+                self._timer = ""
+            if isinstance(self._image, list):
+                if idmsg == "WindowResize":
+                    return
+                def update_frame(frames: list[cv2.typing.MatLike], index: int):
+                    frame = frames[index]
+                    next_index = (index + 1) % len(frames)
+                    # image = self._scale_image(frame)
+                    new_width, new_height = self._calc_sacle(frame)
+                    image = cv2u.scale_image(frame, new_width, new_height, cv2.INTER_CUBIC)
+                    self._image_panel.display_image(image)
+                    self._timer = self.win.after(50, update_frame, frames, next_index)
+                update_frame(self._image, 0)
+            else:
+                # image = self._scale_image(self._image)
+                new_width, new_height = self._calc_sacle(self._image)
+                image = cv2u.scale_image(self._image, new_width, new_height, cv2.INTER_CUBIC)
+                self._image_panel.display_image(image)
 
         return True
 
