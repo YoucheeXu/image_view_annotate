@@ -5,15 +5,16 @@ import sys
 import os
 import tkinter.messagebox as tkMessageBox
 from tkinter import filedialog, simpledialog
-import tkinter as tk
+# import tkinter as tk
 from typing import cast, override, Any
 from idlelib.statusbar import MultiStatusBar
 
-import numpy as np
+# import numpy as np
 import cv2
-import PIL
+# import PIL
 
 from pyutilities.logit import pv
+import pyutilities.cv2_utilities as cv2u
 # from pyutilities.win_app import ImagePanelCtrl, WinApp
 from pyutilities.tkwin import ImagePanelCtrl, tkWin
 from pyutilities.utilities import legal_name
@@ -111,34 +112,6 @@ class App(tkWin):
             return self._next_image()
         return ""
 
-    # TODO: save
-    def _rotate_image(self, image: cv2.typing.MatLike | None, degree: float):
-        assert self._image_panel
-        if image is not None:
-            # Shape of image in terms of pixels.
-            h, w = cast(tuple[int, int], image.shape[:2])
-
-            ll: int = max(w, h)
-            cx, cy = (ll // 2, ll // 2)
-            padding_w: int = (ll - w) // 2  # 指定零填充的宽度
-            padding_h: int = (ll - h) // 2  # 指定零填充的高度
-
-            # 在原图像做对称的零填充，使得图片由矩形变为方形
-            img_padded: cv2.typing.MatLike = np.zeros(shape=(ll, ll, 3), dtype=np.uint8)
-            img_padded[padding_h : padding_h + h, padding_w : padding_w + w, :] = image
-
-            # getRotationMatrix2D creates a matrix needed for transformation.
-            # - (cX, cY): 旋转的中心点坐标
-            # - degree: 旋转的度数，正度数表示逆时针旋转，而负度数表示顺时针旋转。
-            # - 1.0：旋转后图像的大小，1.0原图，2.0变成原来的2倍，0.5变成原来的0.5倍
-            M = cv2.getRotationMatrix2D((cx, cy), degree, 1)
-            rotated_padded = cv2.warpAffine(img_padded, M, (ll, ll))
-
-            image = rotated_padded[
-                padding_w : padding_w + w, padding_h : padding_h + h, :
-            ]
-            return image
-
     def _next_image(self):
         if self._idx < len(self._image_list) - 1:
             self._idx += 1
@@ -153,7 +126,6 @@ class App(tkWin):
             self._idx = len(self._image_list) - 1
         return self._image_list[self._idx]
 
-    # TODO: center the dialog
     def _open_image(self):
         # open a file chooser dialog and allow the user to select an input image
         return filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
@@ -200,9 +172,7 @@ class App(tkWin):
         self._statusbar.set_label("info", f"{image_width}*{image_height}\t\t{scale*100: .2f}%")
         self._statusbar.set_label("index", f"{self._idx+1} of {len(self._image_list)}", "right")
 
-        return cv2.resize(
-            image, (int(new_width), int(new_height)), interpolation=cv2.INTER_CUBIC
-        )
+        return cv2u.scale_image(image, int(new_width), int(new_height), cv2.INTER_CUBIC)
 
     def _read_image(self, image_path: str):
         if os.path.exists(image_path):
@@ -210,8 +180,7 @@ class App(tkWin):
             self._win.title(image_name)
 
             # load the image from disk
-            # image = cv2.imdecode(np.fromfile(imagepath, dtype=np.uint8), cv2.IMREAD_COLOR)
-            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            image = cv2u.read_image(image_path)
 
             return image
         return None
@@ -233,8 +202,9 @@ class App(tkWin):
                 return False
 
     @override
-    def _before_go(self):
-        self.process_message("btnOpnImg")
+    def go(self):
+        _ = self.process_message("btnOpnImg")
+        super().go()
 
     @override
     def process_message(self, idmsg: str, **kwargs: Any):
@@ -253,9 +223,15 @@ class App(tkWin):
                 image_path = self._prev_image()
                 self._image = self._read_image(image_path)
             case "btnRotClkwis":
-                self._image = self._rotate_image(self._image, -90)
+                if self._image:
+                    self._image = cv2u.rotate_image(self._image, -90)
+                else:
+                    return
             case "btnRotAticlkwis":
-                self._image = self._rotate_image(self._image, 90)
+                if self._image:
+                    self._image = cv2u.rotate_image(self._image, 90)
+                else:
+                    return
             case "bntDelImg":
                 image_path = self._delete_image()
                 self._image = self._read_image(image_path)
@@ -274,12 +250,12 @@ class App(tkWin):
 
 
 def main():
-    cur_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.dirname(os.path.abspath(__file__))
     if getattr(sys, "frozen", False):
-        cur_path = os.path.dirname(os.path.abspath(sys.executable))
-    proj_path = os.path.join(cur_path, "..")
+        file_path = os.path.dirname(os.path.abspath(sys.executable))
+    proj_path = os.path.join(file_path, "..")
     win_xml = os.path.join(proj_path, "resources", "window.xml")
-    my_app = App(cur_path, win_xml)
+    my_app = App(proj_path, win_xml)
 
     # kick off the app
     my_app.go()
