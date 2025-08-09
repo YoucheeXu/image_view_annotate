@@ -1,12 +1,14 @@
 <Window Title="Image View and Annotate" Width="800" Height="600">
 	<Toolbar text="toolbar" layout="grid" grid="{'row':0, 'sticky':'ew'}">
-		<ImgButton text="OpenImage" 			tooltip="Open Image" 			img="icons8-add-file-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="RenameImage" 			tooltip="Rename Image" 			img="icons8-rename-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="NextImage" 			tooltip="Next Image" 			img="icons8-next-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="PreviousImage" 		tooltip="Previous Image" 		img="icons8-previous-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="RotateClockwise"		tooltip="Rotate Clockwise" 		img="icons8-rotate-right-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="RotateAnticlockwise"	tooltip="Rotate Anticlockwise"	img="icons8-rotate-left-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
-		<ImgButton text="DeleteImage" 			tooltip="Delete Image" 			img="icons8-delete-16.png" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnOpnImg" tooltip="Open Image" img="icons8-add-file-16.png" 						options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnRnmImg" tooltip="Rename Image" img="icons8-rename-16.png" 						options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnNxtImg" tooltip="Next Image" img="icons8-next-16.png" 							options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnPrvImg" tooltip="Previous Image" img="icons8-previous-16.png" 					options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnRotClkwis" tooltip="Rotate Clockwise" img="icons8-rotate-right-16.png" 			options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="btnRotAticlkwis" tooltip="Rotate Anticlockwise" img="icons8-rotate-left-16.png"	options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="bntDelImg" tooltip="Delete Image" img="icons8-delete-16.png" 						options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
+		<ImageButton id="Exit" tooltip="Exit Application" img="icons8-close-window-16.png" 					options="{'width':16, 'height':16}" layout="pack" pack="{'side':'left','padx':2,'pady':2}"/>
 	</Toolbar>
-	<ImgPanel  text="ImageViewandAnnotate" layout="grid" grid="{'row':1, 'sticky':'ewsn'}" options="{'bg':'white'}"/>
+	<ImagePanel id="pnlImage" options="{'bg':'white'}" layout="grid" grid="{'row':1, 'sticky':'ewsn'}"/>
+	<Statusbar text="Statusbar" layout="grid" grid="{'row':2, 'sticky':'ew'}"/>
 </Window>

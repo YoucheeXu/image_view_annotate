@@ -1,291 +1,290 @@
 #!/usr/bin/python3
 # -*- coding: UTF-8 -*-
+from __future__ import annotations
 import sys
 import os
-import re
-
+import tkinter.messagebox as tkMessageBox
+from tkinter import filedialog, simpledialog
 import tkinter as tk
-import tkinter.ttk as ttk
-from tkinter import filedialog, simpledialog, messagebox
+from typing import cast, override, Any
+from idlelib.statusbar import MultiStatusBar
 
 import numpy as np
 import cv2
+import PIL
 
 from pyutilities.logit import pv
-from pyutilities.tkwin import tkWin
-
-
-class StatusBar(tk.Frame):
-	def __init__(self, _frmApp):
-		tk.Frame.__init__(self, _frmApp)
-		self.__label = tk.Label(self, bd = 1, relief = tk.SUNKEN, anchor = "w")
-		self.__label.pack(fill = tk.X)
-	def set(self, format0, *args):
-		self.__label.config(text = format0 % args)
-		self.__label.update_idletasks()
-	def clear(self):
-		self.__label.config(text="")
-		self.__label.update_idletasks()
+# from pyutilities.win_app import ImagePanelCtrl, WinApp
+from pyutilities.tkwin import ImagePanelCtrl, tkWin
+from pyutilities.utilities import legal_name
 
 
 class App(tkWin):
 
-	def __init__(self):
-		super().__init__()
-		# self._frmApp = root
+    def __init__(self, path_: str, xmlfile: str):
+        super().__init__(path_, xmlfile)
 
-		# resize row 1 and column 0 with window
-		self._frmApp.rowconfigure(1, weight = 1)
-		self._frmApp.columnconfigure(0, weight = 1)
-		# set minimum height for row 0 and 2
-		self._frmApp.rowconfigure(0, minsize = 20)
-		self._frmApp.rowconfigure(2, minsize = 20)
+        # resize row 1 and column 0 with window
+        _ = self._win.rowconfigure(1, weight=1)
+        _ = self._win.columnconfigure(0, weight=1)
+        # set minimum height for row 0 and 2
+        _ = self._win.rowconfigure(0, minsize=20)
+        _ = self._win.rowconfigure(2, minsize=20)
 
-		self.__imgLst = []
+        self._image_list: list[str] = []
 
-		self.__window_width = 0
-		self.__window_height = 0
+        self._image: cv2.typing.MatLike | None = None
+        self._idx: int = -1
 
-		# self._frmApp.title("imgView&Annotation")
+        self._image_panel: ImagePanelCtrl = cast(ImagePanelCtrl, self.get_control("pnlImage"))
+        self._statusbar: MultiStatusBar = cast(MultiStatusBar, self.get_control("Statusbar"))
 
-		# toolbar = ToolBar(self._frmApp, self)
-		# toolbar.grid(row=0, sticky="ew")
+        # windows maximum
+        # self._win.state('zoomed')
+        # linux maximum
+        # self._win.attributes('-zoomed', True)
 
-		# self.__imgPanel = tk.Label(text = "image View and Annotate", anchor = tk.CENTER)
-		# self.__imgPanel.grid(row = 1, sticky = "ewsn")
+    # FIXME: the order is not responding with the windows file order
+    def _traverse_imgs(self, img: str):
+        print(f"file: {img}")
+        if len(self._image_list) > 0:
+            self._image_list.clear()
+        path, img_name = os.path.split(img)
 
-		self.__imgPanel = None
+        i: int = 0
+        files = os.listdir(path)
+        for file in files:
+            file_path = os.path.join(path, file)
+            if os.path.isfile(file_path):
+                ext = os.path.splitext(file_path)[-1]
+                ext = ext.lower()
+                if ext in [".jpg", ".png"]:
+                    self._image_list.append(file_path)
+                    if img_name == file:
+                        self._idx = i
+                    i += 1
+        print(f"there is {len(self._image_list)} images.")
+        print(self._image_list)
+        print(f"the index is {self._idx}.")
 
-		self.__statusbar = StatusBar(self._frmApp)
-		self.__statusbar.grid(row=2, sticky="ew")
+    # FIXME: 1) size of askstring is not proper
+    # 2) left key doesn't work
+    def _rename_image(self, init_val: str = ""):
+        try:
+            image_name = self._image_list[self._idx]
+        except IndexError:
+            return ""
+        path, fname = os.path.split(image_name)
+        name, ext = os.path.splitext(fname)
+        if not init_val:
+            init_val = name
 
-		self.__img = None
+        new_name = simpledialog.askstring(
+            title="Rename " + name, prompt="rename to ", initialvalue=init_val
+        )
+        if new_name is not None:
+            if len(new_name) > 0:
+                new_name2 = legal_name(new_name)
+                if len(new_name2) == len(new_name):
+                    new_name = os.path.join(path, new_name + ext)
+                    os.rename(image_name, new_name)
+                    print(image_name + " is be renamed to " + new_name)
+                    self._image_list[self._idx] = new_name
+                    return new_name
+                else:
+                    # _ = messagebox.showerror("Error", "File name illegal")
+                    _ = self.show_err("Error", f"File name '{new_name}' illegal")
+        return ""
 
-	def go(self):
-		self.__imgPanel = self.get_control("ImageViewandAnnotate")
+    def _delete_image(self):
+        try:
+            cur_image = self._image_list[self._idx]
+        except IndexError:
+            return ""
+        image_name = os.path.split(cur_image)[1]
+        res = tkMessageBox.askquestion(
+            image_name, "Do you really want to delete?"
+        )
+        if res == "yes":
+            os.remove(cur_image)
+            del self._image_list[self._idx]
+            return self._next_image()
+        return ""
 
-		# windows maximum
-		# self._frmApp.state('zoomed')
-		# linux maximum
-		# self._frmApp.attributes('-zoomed', True)
+    # TODO: save
+    def _rotate_image(self, image: cv2.typing.MatLike | None, degree: float):
+        assert self._image_panel
+        if image is not None:
+            # Shape of image in terms of pixels.
+            h, w = cast(tuple[int, int], image.shape[:2])
 
-		self._frmApp.bind_all('<KeyPress>', self.eventhandler)
-		self._frmApp.bind('<Configure>', self.onWindowResize)
-		self._frmApp.mainloop()
+            ll: int = max(w, h)
+            cx, cy = (ll // 2, ll // 2)
+            padding_w: int = (ll - w) // 2  # 指定零填充的宽度
+            padding_h: int = (ll - h) // 2  # 指定零填充的高度
 
-	# FIXME: the order is not responding with the windows file order
-	def __traverseImgs(self, img):
-		print("file:", img)
-		if len(self.__imgLst) > 0:
-			self.__imgLst.clear()
-		# self.__imgLst.append(img)
-		# self.__idx = 0;
-		path, imgName = os.path.split(img)
+            # 在原图像做对称的零填充，使得图片由矩形变为方形
+            img_padded: cv2.typing.MatLike = np.zeros(shape=(ll, ll, 3), dtype=np.uint8)
+            img_padded[padding_h : padding_h + h, padding_w : padding_w + w, :] = image
 
-		i = 0
-		files = os.listdir(path)
-		for file in files:
-			filePath = os.path.join(path, file)
-			if os.path.isfile(filePath):
-				ext = os.path.splitext(filePath)[-1]
-				ext = ext.lower()
-				if ext in [".jpg", ".png"]:
-					self.__imgLst.append(filePath)
-					if imgName == file:
-						self.__idx = i
-					i += 1
-		print("there is %d images." %len(self.__imgLst))
-		print(self.__imgLst)
-		print("the order is %d." %self.__idx)
+            # getRotationMatrix2D creates a matrix needed for transformation.
+            # - (cX, cY): 旋转的中心点坐标
+            # - degree: 旋转的度数，正度数表示逆时针旋转，而负度数表示顺时针旋转。
+            # - 1.0：旋转后图像的大小，1.0原图，2.0变成原来的2倍，0.5变成原来的0.5倍
+            M = cv2.getRotationMatrix2D((cx, cy), degree, 1)
+            rotated_padded = cv2.warpAffine(img_padded, M, (ll, ll))
 
-	# FIXME: 1) size of askstring is not proper
-	# 2) left key doesn't work
-	def __rename_image(self, initVal = None):
-		curImg = self.__imgLst[self.__idx]
-		path, fName = os.path.split(curImg)
-		name, ext = os.path.splitext(fName)
-		if not initVal:
-			initVal = name
+            image = rotated_padded[
+                padding_w : padding_w + w, padding_h : padding_h + h, :
+            ]
+            return image
 
-		newName = simpledialog.askstring(title = "Rename " + name,
-			prompt = "rename to ", initialvalue = initVal)
-		if newName is not None:
-			if len(newName) > 0:
-				newName2 = re.sub('[\/:*?"<>|]', '', newName)
-				if len(newName2) == len(newName):
-					newName = os.path.join(path, newName + ext)
-					os.rename(curImg, newName)
-					print(curImg + " is be renamed to " + newName)
-					self.__imgLst[self.__idx] = newName
-					self.__read_show_image(newName)
-				else:
-					messagebox.showerror("Error", "File name illegal")
-					self.__rename(newName)
+    def _next_image(self):
+        if self._idx < len(self._image_list) - 1:
+            self._idx += 1
+        else:
+            self._idx = 0
+        return self._image_list[self._idx]
 
-	def __delete_image(self):
-		curImg = self.__imgLst[self.__idx]
-		os.remove(curImg)
-		del self.__imgLst[self.__idx]
+    def _prev_image(self):
+        if self._idx >= 1:
+            self._idx -= 1
+        else:
+            self._idx = len(self._image_list) - 1
+        return self._image_list[self._idx]
 
-		self.__next_image()
+    # TODO: center the dialog
+    def _open_image(self):
+        # open a file chooser dialog and allow the user to select an input image
+        return filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
 
-	# TODO: save
-	def __rotate_image(self, degree):
-		if self.__img is not None:
-			# Shape of image in terms of pixels.
-			(h, w) = self.__img.shape[:2]
+    def _scale_image(self, image: cv2.typing.MatLike, factor: float = 1):
+        assert self._image_panel and self._statusbar
+        # Get number of pixel horizontally and vertically.
+        image_height, image_width = cast(tuple[int, int], image.shape[:2])
+        print("img:", image_width, image_height)
+        print("win w:", self._ww, ", win h:", self._hh)
+        print(
+            "panel x:",
+            self._image_panel.control.winfo_x(),
+            ", panel y:",
+            self._image_panel.control.winfo_y(),
+        )
+        print(
+            "statusbar x:",
+            self._statusbar.winfo_x(),
+            ", statusbar y:",
+            self._statusbar.winfo_y(),
+        )
+        self._win.update()
+        fram_width = self._image_panel.control.winfo_width()
+        # fram_height = self._window_height - self._imgPanel.winfo_y() - 20
+        fram_height = self._statusbar.winfo_y() - \
+            self._image_panel.control.winfo_y()
+        print("panel:", fram_width, fram_height)
+        ratio_width = image_width / fram_width
+        ratio_height = image_height / fram_height
+        print("ratio:", ratio_width, ratio_height)
+        ratio_image = image_height / image_width
+        print("ratio of Image:", ratio_image)
+        scale = 1 / max(ratio_width, ratio_height)
+        print("scale:", scale)
+        new_width = image_width * scale * factor
+        new_height = new_width * ratio_image * factor
+        print("new:", new_width, new_height)
 
-			l = max(w, h)
-			(cX, cY) = (l // 2, l // 2)
-			paddingW = (l - w) // 2	# 指定零填充的宽度
-			paddingH = (l - h) // 2	# 指定零填充的高度
+        # display_width = self._img_panel.winfo_width()
+        # pv(display_width)
+        # display_height = self._
 
-			# 在原图像做对称的零填充，使得图片由矩形变为方形
-			img_padded = np.zeros(shape = (l, l, 3), dtype = np.uint8)
-			img_padded[paddingH: paddingH + h, paddingW: paddingW + w, :] = self.__img
+        self._statusbar.set_label("info", f"{image_width}*{image_height}\t\t{scale*100: .2f}%")
+        self._statusbar.set_label("index", f"{self._idx+1} of {len(self._image_list)}", "right")
 
-			# getRotationMatrix2D creates a matrix needed for transformation.
-			# - (cX, cY): 旋转的中心点坐标
-			# - degree: 旋转的度数，正度数表示逆时针旋转，而负度数表示顺时针旋转。
-			# - 1.0：旋转后图像的大小，1.0原图，2.0变成原来的2倍，0.5变成原来的0.5倍
-			M = cv2.getRotationMatrix2D((cX, cY), degree, 1)
+        return cv2.resize(
+            image, (int(new_width), int(new_height)), interpolation=cv2.INTER_CUBIC
+        )
 
-			rotated_padded = cv2.warpAffine(img_padded, M, (l, l))
+    def _read_image(self, image_path: str):
+        if os.path.exists(image_path):
+            image_name = os.path.split(image_path)[1]
+            self._win.title(image_name)
 
-			self.__img = rotated_padded[paddingW: paddingW + w, paddingH: paddingH + h, :]
+            # load the image from disk
+            # image = cv2.imdecode(np.fromfile(imagepath, dtype=np.uint8), cv2.IMREAD_COLOR)
+            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
-			img = self.__scale_image(self.__img)
-			self.__imgPanel.display_image(img)
+            return image
+        return None
 
-	# FIXME: circulate
-	def __next_image(self):
-		if self.__idx < len(self.__imgLst) - 1:
-			self.__idx += 1
-			imgPath = self.__imgLst[self.__idx]
-			self.__read_show_image(imgPath)
+    def keypress_handler(self, **kwargs: Any):
+        key = cast(str, kwargs["key"])
+        match key:
+            case "Left":
+                return self.process_message("btnPrvImg")
+            case "Right":
+                return self.process_message("btnNxtImg")
+            case "F2":
+                return self.process_message("btnRnmImg")
+            case "F3":
+                return self.process_message("btnOpnImg")
+            case "Delete":
+                return self.process_message("bntDelImg")
+            case _:
+                return False
 
-	# FIXME: circulate
-	def __prev_image(self):
-		if self.__idx >= 1:
-			self.__idx -= 1
-			imgPath = self.__imgLst[self.__idx]
-			self.__read_show_image(imgPath)
+    @override
+    def _before_go(self):
+        self.process_message("btnOpnImg")
 
-	# FIXME: center the dialog
-	def __open_image(self):
-		# open a file chooser dialog and allow the user to select an input image
-		imgPath = filedialog.askopenfilename(filetypes=[("Image files", ".jpg .png")])
+    @override
+    def process_message(self, idmsg: str, **kwargs: Any):
+        match idmsg:
+            case "btnOpnImg":
+                image_path = self._open_image()
+                self._traverse_imgs(image_path)
+                self._image = self._read_image(image_path)
+            case "btnRnmImg":
+                image_path = self._rename_image()
+                self._image = self._read_image(image_path)
+            case "btnNxtImg":
+                image_path = self._next_image()
+                self._image = self._read_image(image_path)
+            case "btnPrvImg":
+                image_path = self._prev_image()
+                self._image = self._read_image(image_path)
+            case "btnRotClkwis":
+                self._image = self._rotate_image(self._image, -90)
+            case "btnRotAticlkwis":
+                self._image = self._rotate_image(self._image, 90)
+            case "bntDelImg":
+                image_path = self._delete_image()
+                self._image = self._read_image(image_path)
+            case "WindowResize":
+                pass
+            case "KeyPress":
+                return self.keypress_handler(**kwargs)
+            case _:
+                return super().process_message(idmsg, **kwargs)
 
-		image = self.__read_image(imgPath)
-		if image is not None:
-			self.__traverseImgs(imgPath)
+        if self._image is not None:
+            image = self._scale_image(self._image)
+            self._image_panel.display_image(image) 
 
-			image = self.__scale_image(image)
-			self.__imgPanel.display_image(image)
+        return True
 
-	def __scale_image(self, img, factor = 1):
-		# Get number of pixel horizontally and vertically.
-		(heightOfImg, widthOfImg) = img.shape[:2]
-		print("img:", widthOfImg, heightOfImg)
-		print("win w:", self.__window_width, ", win h:", self.__window_height)
-		print("panel x:", self.__imgPanel.winfo_x(), ", panel y:", self.__imgPanel.winfo_y())
-		print("statusbar x:", self.__statusbar.winfo_x(), ", statusbar y:", self.__statusbar.winfo_y())
-		widthOfFram = self.__window_width
-		# heightOfFram = self.__window_height - self.__imgPanel.winfo_y() - 20
-		heightOfFram =  self.__statusbar.winfo_y() - self.__imgPanel.winfo_y()
-		print("panel:", widthOfFram, heightOfFram)
-		ratioOfWidth = widthOfImg / widthOfFram
-		ratioOfHeight = heightOfImg / heightOfFram
-		print("ratio:", ratioOfWidth, ratioOfHeight)
-		ratioOfImg = heightOfImg / widthOfImg
-		print("ratioOfImg:", ratioOfImg)
-		scale = 1 / max(ratioOfWidth, ratioOfHeight)
-		print("scale:", scale)
-		newWidth = widthOfImg * scale * factor
-		newHeight = newWidth * ratioOfImg * factor
-		print("new:", newWidth, newHeight)
-
-		self.__statusbar.set("%d*%d\t\t%.2f%%%%\t\t%d/%d" %(widthOfImg, heightOfImg, scale * 100, self.__idx + 1, len(self.__imgLst)))
-
-		return cv2.resize(img, (int(newWidth), int(newHeight)), interpolation = cv2.INTER_CUBIC)	
-
-	def __read_image(self, imgPath):
-		if os.path.exists(imgPath):
-			imgName = os.path.split(imgPath)[1]
-			self._frmApp.title(imgName)
-
-			# load the image from disk
-			# image = cv2.imread(imgPath)
-			image = cv2.imdecode(np.fromfile(imgPath, dtype = np.uint8), cv2.IMREAD_COLOR)
-
-			self.__img = image
-			return image
-		else:
-			return None
-
-	def __read_show_image(self, imgPath):
-		image = self.__read_image(imgPath)
-		if image is not None:
-			image = self.__scale_image(image)
-			# self.__displayImg(image)
-			self.__imgPanel.display_image(image)
-
-	# listen events of window resizing.
-	def onWindowResize(self, event = None):
-		if event is not None:
-			if self.__window_width != self._frmApp.winfo_width() or self.__window_height != self._frmApp.winfo_height():
-				if self.__window_width != self._frmApp.winfo_width():
-					self.__window_width = self._frmApp.winfo_width()
-				if self.__window_height != self._frmApp.winfo_height():
-					self.__window_height = self._frmApp.winfo_height()
-
-	def eventhandler(self, event):
-		if event.keysym == "Left":
-			self.__prev_image()
-		elif event.keysym == 'Right':
-			self.__next_image()
-		elif event.keysym == 'F2':
-			self.__rename_image()
-		elif event.keysym == 'F3':
-			self.__open_image()
-		elif event.keysym == 'Delete':
-			self.__delete_image()
-
-	def process_message(self, idCtrl, msg, extMsg=""):
-		if idCtrl == "OpenImage":
-			self.__open_image()
-		elif idCtrl == "RenameImage":
-			self.__rename_image()
-		elif idCtrl == "NextImage":
-			self.__next_image()
-		elif idCtrl == "PreviousImage":
-			self.__prev_image()
-		elif idCtrl == "RotateClockwise":
-			self.__rotate_image(-90)
-		elif idCtrl == "RotateAnticlockwise":
-			self.__rotate_image(90)
-		elif idCtrl == "DeleteImage":
-			self.__delete_image()
-		elif idCtrl == "ExitApplication":
-			super().exit_window()
-		else:
-			super().process_message(idCtrl, msg, extMsg)
 
 def main():
-	myApp = App()
+    cur_path = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, "frozen", False):
+        cur_path = os.path.dirname(os.path.abspath(sys.executable))
+    proj_path = os.path.join(cur_path, "..")
+    win_xml = os.path.join(proj_path, "resources", "window.xml")
+    my_app = App(cur_path, win_xml)
 
-	curPath = os.path.dirname(os.path.abspath(__file__))
-	if getattr(sys, 'frozen', False):
-		# print("script is packaged!")
-		curPath = os.path.dirname(os.path.abspath(sys.executable))
-	proj_path = os.path.join(curPath, "..")
-	winXml = os.path.join(proj_path, 'resources', 'window.xml')
-	myApp.create_window(winXml)
-
-	# kick off the GUI
-	myApp.go()
+    # kick off the app
+    my_app.go()
 
 
 if __name__ == "__main__":
-	# execute only if run as a script
-	main()
+    # execute only if run as a script
+    main()
