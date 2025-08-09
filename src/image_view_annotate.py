@@ -16,7 +16,6 @@ from PIL import Image, ImageSequence
 
 from pyutilities.logit import pv, po
 import pyutilities.cv2_utilities as cv2u
-# from pyutilities.win_app import ImagePanelCtrl, WinApp
 from pyutilities.tkwin import ImagePanelCtrl, tkWin
 from pyutilities.utilities import legal_name
 
@@ -53,22 +52,22 @@ class App(tkWin):
         self._timer: str = ""
 
     # FIXME: the order is not responding with the windows file order
-    def _traverse_imgs(self, img: str):
-        po(f"file: {img}")
+    def _traverse_imgs(self, imagepath: str):
+        po(f"file: {imagepath}")
         if len(self._image_list) > 0:
             self._image_list.clear()
-        path, img_name = os.path.split(img)
+        path, image_name = os.path.split(imagepath)
 
         i: int = 0
         files = os.listdir(path)
-        for file in files:
-            file_path = os.path.join(path, file)
+        for imagefile in files:
+            file_path = os.path.join(path, imagefile)
             if os.path.isfile(file_path):
                 ext = os.path.splitext(file_path)[-1]
                 ext = ext.lower()
                 if ext in self._support_exts:
                     self._image_list.append(file_path)
-                    if img_name == file:
+                    if image_name == imagefile:
                         self._idx = i
                     i += 1
         po(f"there is {len(self._image_list)} images.")
